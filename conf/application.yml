@@ -1,0 +1,7 @@
+http.port: 8881
+
+mongo.traffic.meta.uri: "mongodb://admin:admin@localhost:27017/traffic-meta.campaign-setup?authSource=admin"
+
+redis.uri: "redis://localhost:6379"
+
+max.thread: 2

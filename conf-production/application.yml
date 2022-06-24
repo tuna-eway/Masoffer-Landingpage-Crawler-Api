@@ -1,0 +1,7 @@
+http.port: 8881
+
+mongo.traffic.meta.uri: "mongodb://10.10.8.214:27017/traffic-meta.campaign-setup"
+
+redis.uri: "redis://10.10.8.214:6379"
+
+max.thread: 30

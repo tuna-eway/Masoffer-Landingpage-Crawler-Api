@@ -1,0 +1,21 @@
+image: ewayvn/dind-ubuntu-gradle
+
+services:
+  - docker:dind
+
+variables:
+  GRADLE_USER_HOME: "/cache/gradle"
+
+job:
+  stage: build
+  only:
+    - master
+    - develop
+
+  script:
+    - gradle build -Penv=production -x test
+    - gradle :unzip
+    - gradle :buildDocker -PpushDocker
+
+after_script:
+  - echo "End CI"

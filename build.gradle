@@ -1,0 +1,139 @@
+group 'io.x10.masoffer'
+version '22.06.24.0'
+
+apply plugin: 'groovy'
+apply plugin: 'application'
+
+// Check credentials
+if (project.hasProperty("eway_jfrog_username")) {
+    project.ext.eway_jfrog_username=project.getProperty("eway_jfrog_username")
+}
+else {
+    project.ext.eway_jfrog_username="eway_jfrog_username"
+}
+
+if (project.hasProperty("eway_jfrog_pwd")) {
+    project.ext.eway_jfrog_pwd=project.getProperty("eway_jfrog_pwd")
+}
+else {
+    project.ext.eway_jfrog_pwd="eway_jfrog_pwd"
+}
+
+allprojects {
+    repositories {
+        jcenter()
+        mavenLocal()
+        mavenCentral()
+        maven {
+            url 'https://repo.eway.vn/artifactory/ewaypublic'
+            credentials {
+                username = "${eway_jfrog_username}"
+                password = "${eway_jfrog_pwd}"
+            }
+        }
+    }
+}
+
+dependencies {
+    implementation 'org.codehaus.groovy:groovy-all:2.4.10'
+
+    def vertxVersion = "3.4.1"
+    implementation "io.vertx:vertx-web:$vertxVersion"
+    implementation "io.vertx:vertx-auth-common:$vertxVersion"
+    implementation "io.vertx:vertx-auth-shiro:$vertxVersion"
+
+    implementation 'ch.qos.logback:logback-core:1.1.8'
+    implementation 'ch.qos.logback:logback-classic:1.1.8'
+
+    def jacksonVersion = "2.8.7"
+    implementation "com.fasterxml.jackson.core:jackson-core:$jacksonVersion"
+    implementation "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:$jacksonVersion"
+    implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jacksonVersion"
+    implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:$jacksonVersion"
+    implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-smile:$jacksonVersion"
+    implementation 'com.alibaba:fastjson:1.2.51'
+    implementation 'net.jodah:failsafe:1.0.4'
+
+    implementation group: 'org.seleniumhq.selenium', name: 'selenium-chrome-driver', version: '3.141.59'
+    implementation group: 'org.seleniumhq.selenium', name: 'selenium-java', version: '3.141.59'
+
+    implementation 'org.apache.commons:commons-lang3:3.5'
+    implementation 'commons-io:commons-io:2.5'
+    implementation 'commons-codec:commons-codec:1.10'
+    implementation 'commons-net:commons-net:3.3'
+    implementation 'commons-validator:commons-validator:1.5.1'
+    implementation 'com.getsentry.raven:raven-logback:7.8.2'
+    implementation 'com.spotify:completable-futures:0.3.0'
+    implementation group: 'com.github.ben-manes.caffeine', name: 'caffeine', version: '2.4.0'
+
+    testImplementation 'org.spockframework:spock-core:1.0-groovy-2.4'
+}
+
+mainClassName = 'app.Runner'
+
+applicationDefaultJvmArgs = [
+        "-Duser.dir=MY_APP_HOME",
+        "-Dvertx.cwd=MY_APP_HOME",
+        "-Dlogback.configurationFile=MY_APP_HOME/conf/logback.groovy",
+        "-Dvertx.logger-delegate-factory-class-name=io.vertx.core.logging.SLF4JLogDelegateFactory",
+        "-Xmx512m"
+]
+
+def confFolder = 'conf'
+def productionSuffix = 'production'
+
+if (project.hasProperty('env') && project.getProperty('env') == productionSuffix) {
+    confFolder += "-$productionSuffix"
+}
+
+applicationDistribution.from(confFolder) {
+    into "conf"
+}
+
+project.startScripts.with {
+    doLast {
+        unixScript.text = unixScript.text.replace('MY_APP_HOME', '\$APP_HOME')
+        windowsScript.text = windowsScript.text.replace('MY_APP_HOME', '%~dp0..')
+    }
+}
+
+// build docker image
+apply plugin: 'docker'
+buildscript {
+    repositories {
+        jcenter()
+    }
+
+    dependencies {
+        classpath 'se.transmode.gradle:gradle-docker:1.2'
+    }
+}
+
+
+task unzip(type: Copy) {
+    from(zipTree("$buildDir/distributions/${rootProject.name}-${version}.zip"))
+    into "$buildDir/distributions/"
+}
+
+docker {
+    baseImage "hiepdv/java-chrome:8.91"
+}
+
+task buildDocker(type: Docker) {
+    applicationName = "${rootProject.name}"
+    registry = "docker.eway.vn"
+    tag = "$registry/${project.group}/${applicationName}"
+    println " === Building docker image: $tag:${version} === "
+    addFile("$buildDir/distributions/${rootProject.name}-$version", "/opt/x10/app/")
+    runCommand "cp /opt/x10/app/bin/${rootProject.name} /opt/x10/app/bin/start"
+    if (project.hasProperty('pushDocker'))
+    {
+        println " === pushing image $tag:${version} to $registry === "
+        push = project.hasProperty('pushDocker')
+        println " === done pushing image $tag:${version} ==="
+
+    }
+
+}
+buildDocker.dependsOn unzip
