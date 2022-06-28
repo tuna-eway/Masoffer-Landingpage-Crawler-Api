@@ -1,5 +1,5 @@
 group 'io.x10.masoffer'
-version '22.06.24.0'
+version '22.06.28.0'
 
 apply plugin: 'groovy'
 apply plugin: 'application'
